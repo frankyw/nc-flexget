@@ -1,0 +1,352 @@
+variables: variables.yml
+
+templates:
+  anchors:
+    _transmission: &transmission
+      host: localhost
+      port: 9091
+      username: '{? transmission.username ?}'
+      password: '{? transmission.password ?}'
+
+    _iptorrents_credentials: &iptorrents_credentials
+      rss_key: '{? ipt.passkey ?}'
+      uid: '{? ipt.uid ?}'
+      password: '{? ipt.password ?}'
+
+    _torrentday_credentials: &torrentday_credentials
+      uid: "'{? td.uid ?}'"
+      cfduid: '{? td.cfduid ?}'
+      passkey: '{? td.passkey ?}'
+      rss_key: '{? td.rss_key ?}'
+
+    _torrentleech_credentials: &torrentleech_credentials
+      rss_key: '{? tl.rss_key ?}'
+      username: '{? tl.username ?}'
+      password: '{? tl.password ?}'
+
+    _iptorrents_irc: &iptorrents_irc
+      passkey: '{? ipt.passkey ?}'
+      nickname: '{? ipt.nickname ?}' 
+
+    _trakt_credentials: &trakt_credentials
+      username: '{? trakt.username ?}'
+      account: '{? trakt.account ?}'
+
+    _movie_lookup: &movie_lookup
+      imdb_lookup: yes
+      tmdb_lookup: yes
+
+    _tv_lookup: &tv_lookup
+      thetvdb_lookup: yes
+      trakt_lookup:
+        <<: *trakt_credentials
+
+  trakt_tv_list: &trakt_tv_list
+    trakt_list:
+      <<: *trakt_credentials
+      list: '{? trakt.tv_list ?}'
+      type: shows
+
+  trakt_tv4k_list: &trakt_tv4k_list
+    trakt_list:
+      <<: *trakt_credentials
+      list: '{? trakt.tv4k_list ?}'
+      type: shows
+
+  trakt_movie_list: &trakt_movie_list
+    trakt_list:
+      <<: *trakt_credentials
+      list: '{? trakt.movie_list ?}'
+      type: movies
+
+  trakt_movie4k_list: &trakt_movie4k_list
+    trakt_list:
+      <<: *trakt_credentials
+      list: '{? trakt.movie4k_list ?}'
+      type: movies
+
+  global-settings:
+    transmission:
+      <<: *transmission
+    free_space:
+      path: /raidarray
+      space: 20000
+    pathscrub: windows
+    include: reject.yml
+    sort_by:
+      field: quality
+      reverse: yes
+    trakt_lookup:
+      <<: *trakt_credentials
+    if:
+      - trakt_collected: reject
+      - trakt_watched: reject
+
+  tv-settings:
+    <<: *tv_lookup
+    sequence:
+      - configure_series:
+          from:
+            <<: *trakt_tv_list
+          settings:
+            exact: no
+            quality: 1080p webrip+
+            propers: 2 days
+            identified_by: ep 
+      - configure_series:
+          from:
+            <<: *trakt_tv4k_list
+          settings:
+            exact: no
+            quality: 2160p webrip+
+            propers: 2 days
+            identified_by: ep
+    include: alternates.yml
+        
+  movie-settings:
+    <<: *movie_lookup
+    proper_movies: no
+    content_size:
+      min: 1000
+      max: 80000
+      strict: no
+    quality: 1080p webdl+
+    list_match:
+      from:
+        - movie_list: movies
+
+  movie4k-settings:
+    <<: *movie_lookup
+    proper_movies: yes
+    content_size:
+      min: 15000
+      max: 80000
+      strict: no
+    quality: 2160p webdl+
+    list_match:
+      from:
+        - movie_list: movies4k
+    regexp:
+      reject_excluding:
+        - HDR
+
+tasks:
+
+  monitor-rss:
+    priority: 1
+    template:
+      - global-settings
+      - tv-settings
+    inputs:
+      - rss: https://rarbg.to/rssdd.php?categories=18;41;49
+    cfscraper: yes
+
+  search-tv:
+    priority: 2
+    template:
+      - global-settings
+      - tv-settings
+    discover:
+      what:
+        - next_series_episodes: yes
+      from:
+        - iptorrents: 
+            <<: *iptorrents_credentials
+            category: [22, 5, 99]
+        - rarbg:
+            category: [18, 41, 49]
+      interval: 3 hours
+    cfscraper: yes
+      
+  search-movies:
+    priority: 3
+    template:
+      - global-settings
+      - movie-settings
+    discover:
+      release_estimations:
+        optimistic: 4 weeks
+      what:
+        - movie_list: movies
+      from:
+        - rarbg:
+            category: [17, 44, 50, 51, 52]
+        - iptorrents: 
+            <<: *iptorrents_credentials
+            category: [48, 20, 100, 101]
+      interval: 6 hours
+    cfscraper: yes
+
+  search-movies4k:
+    priority: 4
+    template:
+      - global-settings
+      - movie4k-settings
+    discover:
+      release_estimations:
+        optimistic: 4 weeks
+      what:
+        - movie_list: movies4k
+      from:
+        - rarbg:
+            category: [50, 51, 52]
+        - iptorrents: 
+            <<: *iptorrents_credentials
+            category: [101]
+      interval: 6 hours
+    cfscraper: yes
+
+  trakt-update-movie-queue:
+    priority: 10
+    <<: *movie_lookup  
+    template: trakt_movie_list
+    accept_all: yes
+    list_add:
+      - movie_list: movies
+    no_entries_ok: yes
+    seen: local
+
+  trakt-update-movie4k-queue:
+    priority: 15
+    <<: *movie_lookup
+    template: trakt_movie4k_list
+    accept_all: yes
+    list_add:
+      - movie_list: movies4k
+    no_entries_ok: yes
+    seen: local
+
+  trakt-fill-tv-list:
+    priority: 20
+    trakt_list:
+      <<: *trakt_credentials
+      list: "{? trakt.tv_list ?}"
+      type: episodes
+    accept_all: yes
+    set_series_begin: yes
+    list_remove:
+      - trakt_list:
+          <<: *trakt_credentials
+          list: "{? trakt.tv_list ?}"
+          type: episodes
+    list_add:
+      - trakt_list:
+          <<: *trakt_credentials
+          list: "{? trakt.tv_list ?}"
+          type: shows
+    no_entries_ok: yes
+    seen: local
+
+  trakt-fill-tv4k-list:
+    priority: 20
+    trakt_list:
+      <<: *trakt_credentials
+      list: "{? trakt.tv4k_list ?}"
+      type: episodes
+    accept_all: yes
+    set_series_begin: yes
+    list_remove:
+      - trakt_list:
+          <<: *trakt_credentials
+          list: "{? trakt.tv4k_list ?}"
+          type: episodes
+    list_add:
+      - trakt_list:
+          <<: *trakt_credentials
+          list: "{? trakt.tv4k_list ?}"
+          type: shows
+    no_entries_ok: yes
+    seen: local
+
+  trakt-cleanup-tv-list:
+    priority: 30
+    template: trakt_tv_list
+    <<: *tv_lookup
+    disable: seen
+    if:
+      - trakt_series_status in ['ended', 'canceled']: accept
+    list_remove:
+      - <<: *trakt_tv_list
+    no_entries_ok: yes
+
+  trakt-cleanup-tv4k-list:
+    priority: 30
+    template: trakt_tv4k_list
+    <<: *tv_lookup
+    disable: seen
+    if:
+      - trakt_series_status in ['ended', 'canceled']: accept
+    list_remove:
+      - <<: *trakt_tv4k_list
+    no_entries_ok: yes
+
+  trakt-cleanup-movie-list:
+    priority: 30
+    trakt_lookup:
+      <<: *trakt_credentials
+    template: trakt_movie_list
+    disable: seen
+    if:
+      - trakt_collected: accept
+    list_remove:
+      - <<: *trakt_movie_list
+    no_entries_ok: yes
+
+  cleanup-torrents:
+    priority: 40
+    from_transmission:
+      <<: *transmission
+    disable: [seen, seen_info_hash]
+    if:
+      - transmission_progress == 100: accept
+      - "transmission_ratio < 1.0 and transmission_date_done > now - timedelta(days=15)": reject
+    transmission:
+      <<: *transmission
+      action: purge
+    no_entries_ok: yes
+
+  irc-tv-dl:
+    manual: yes
+    max_reruns: 0
+    template:
+      - global-settings
+      - tv-settings
+
+  irc-movie-dl:
+    manual: yes
+    max_reruns: 0
+    template:
+      - global-settings
+      - movie-settings
+
+schedules:
+  - tasks: 'monitor-rss'
+    interval:
+      minutes: 30
+  - tasks: 'search-*'
+    interval:
+      hours: 6
+  - tasks: ['trakt-*', 'cleanup-*']
+    interval:
+      hours: 12
+
+web_server:
+  web_ui: yes
+
+irc:
+
+  irc_ipt:
+    <<: *iptorrents_irc
+    tracker_file: 'IPTorrents.tracker'
+    port: 6697
+    use_ssl: yes
+    channels: ["#ipt.announce"]
+    task_re:
+      - task: irc-tv-dl
+        patterns:
+          - regexp: (TV\/x265|TV\/x264|TV\/Web-DL)
+            field: irc_category
+      - task: irc-movie-dl
+        patterns:
+          - regexp: (Movie\/HD\/Bluray|Movie\/Web-DL|Movie\/x265|Movie\/4K)
+            field: irc_category
