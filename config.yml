@@ -292,6 +292,18 @@ tasks:
       - <<: *trakt_movie_list
     no_entries_ok: yes
 
+  trakt-cleanup-movie4k-list:
+    priority: 30
+    trakt_lookup:
+      <<: *trakt_credentials
+    template: trakt_movie4k_list
+    disable: seen
+    if:
+      - trakt_collected: accept
+    list_remove:
+      - <<: *trakt_movie4k_list
+    no_entries_ok: yes
+
   cleanup-torrents:
     priority: 40
     from_transmission:
@@ -318,6 +330,13 @@ tasks:
     template:
       - global-settings
       - movie-settings
+
+  irc-movie4k-dl:
+    manual: yes
+    max_reruns: 0
+    template:
+      - global-settings
+      - movie4k-settings
 
 schedules:
   - tasks: 'monitor-rss'
@@ -349,4 +368,8 @@ irc:
       - task: irc-movie-dl
         patterns:
           - regexp: (Movie\/HD\/Bluray|Movie\/Web-DL|Movie\/x265|Movie\/4K)
+            field: irc_category
+      - task: irc-movie4k-dl
+        patterns:
+          - regexp: (Movie\/4K)
             field: irc_category
