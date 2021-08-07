@@ -41,6 +41,20 @@ templates:
       trakt_lookup:
         <<: *trakt_credentials
 
+    _mobile_push: &mobile_push
+      notify:
+        entries:
+          title: Download from task {{task}}
+          template: pushover.template
+          via:
+            - pushover:
+                api_key: '{? pushover.api_key ?}'
+                user_key: '{? pushover.user_key ?}'
+                url: '{{trakt_series_url|d(imdb_url)}}'
+                url_title: More Info
+                sound: incoming
+                html: yes
+
   trakt_tv_list: &trakt_tv_list
     trakt_list:
       <<: *trakt_credentials
@@ -81,6 +95,7 @@ templates:
     if:
       - trakt_collected: reject
       - trakt_watched: reject
+    <<: *mobile_push
 
   tv-settings:
     <<: *tv_lookup
