@@ -388,3 +388,9 @@ irc:
         patterns:
           - regexp: (Movie\/4K)
             field: irc_category
+
+log_filter:
+- message: "lookup failed"
+  plugin: imdb_lookup
+- message: "Error refreshing movie details"
+  plugin: api_bluray
