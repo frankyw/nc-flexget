@@ -119,7 +119,7 @@ templates:
     include: alternates.yml
         
   movie-settings:
-    <<: *movie_lookup
+    imdb_lookup: yes
     proper_movies: no
     content_size:
       min: 1000
@@ -131,7 +131,7 @@ templates:
         - movie_list: movies
 
   movie4k-settings:
-    <<: *movie_lookup
+    imdb_lookup: yes
     proper_movies: yes
     content_size:
       min: 15000
