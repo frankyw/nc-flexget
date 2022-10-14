@@ -73,12 +73,6 @@ templates:
       list: '{? trakt.movie_list ?}'
       type: movies
 
-  trakt_movie4k_list: &trakt_movie4k_list
-    trakt_list:
-      <<: *trakt_credentials
-      list: '{? trakt.movie4k_list ?}'
-      type: movies
-
   global-settings:
     transmission:
       <<: *transmission
@@ -119,27 +113,15 @@ templates:
         
   movie-settings:
     imdb_lookup: yes
-    proper_movies: no
-    content_size:
-      min: 1000
-      max: 80000
-      strict: no
-    quality: 1080p webdl+
-    list_match:
-      from:
-        - movie_list: movies
-
-  movie4k-settings:
-    imdb_lookup: yes
     proper_movies: yes
     content_size:
-      min: 15000
+      min: 10000
       max: 80000
       strict: no
     quality: 2160p webdl+
     list_match:
       from:
-        - movie_list: movies4k
+        - movie_list: movies
     regexp:
       reject_excluding:
         - HDR
@@ -192,25 +174,6 @@ tasks:
       interval: 6 hours
     cfscraper: yes
 
-  search-movies4k:
-    priority: 4
-    template:
-      - global-settings
-      - movie4k-settings
-    discover:
-      release_estimations:
-        optimistic: 4 weeks
-      what:
-        - movie_list: movies4k
-      from:
-        - rarbg:
-            category: [50, 51, 52]
-        - iptorrents: 
-            <<: *iptorrents_credentials
-            category: [101]
-      interval: 6 hours
-    cfscraper: yes
-
   trakt-update-movie-queue:
     priority: 10
     <<: *movie_lookup  
@@ -218,16 +181,6 @@ tasks:
     accept_all: yes
     list_add:
       - movie_list: movies
-    no_entries_ok: yes
-    seen: local
-
-  trakt-update-movie4k-queue:
-    priority: 15
-    <<: *movie_lookup
-    template: trakt_movie4k_list
-    accept_all: yes
-    list_add:
-      - movie_list: movies4k
     no_entries_ok: yes
     seen: local
 
@@ -307,18 +260,6 @@ tasks:
       - <<: *trakt_movie_list
     no_entries_ok: yes
 
-  trakt-cleanup-movie4k-list:
-    priority: 30
-    trakt_lookup:
-      <<: *trakt_credentials
-    template: trakt_movie4k_list
-    disable: seen
-    if:
-      - trakt_collected: accept
-    list_remove:
-      - <<: *trakt_movie4k_list
-    no_entries_ok: yes
-
   cleanup-torrents:
     priority: 40
     from_transmission:
@@ -345,13 +286,6 @@ tasks:
     template:
       - global-settings
       - movie-settings
-
-  irc-movie4k-dl:
-    manual: yes
-    max_reruns: 0
-    template:
-      - global-settings
-      - movie4k-settings
 
 schedules:
   - tasks: 'monitor-rss'
@@ -383,10 +317,6 @@ irc:
       - task: irc-movie-dl
         patterns:
           - regexp: (Movie\/HD\/Bluray|Movie\/Web-DL|Movie\/x265|Movie\/4K)
-            field: irc_category
-      - task: irc-movie4k-dl
-        patterns:
-          - regexp: (Movie\/4K)
             field: irc_category
 
 log_filter:
