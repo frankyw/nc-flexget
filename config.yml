@@ -135,25 +135,26 @@ tasks:
       - tv-settings
     inputs:
       - rss: https://rarbg.to/rssdd.php?categories=18;41;49
+      - rss: https://eztv.re/ezrss.xml
     cfscraper: yes
 
-  search-tv:
-    priority: 2
-    template:
-      - global-settings
-      - tv-settings
-    discover:
-      what:
-        - next_series_episodes: yes
-      from:
-        # - iptorrents: 
-        #     <<: *iptorrents_credentials
-        #     category: [22, 5, 99]
-        - rarbg:
-            category: [18, 41, 49]
-      interval: 3 hours
-    cfscraper: yes
-    include: alternates.yml
+  # search-tv:
+  #   priority: 2
+  #   template:
+  #     - global-settings
+  #     - tv-settings
+  #   discover:
+  #     what:
+  #       - next_series_episodes: yes
+  #     from:
+  #       - iptorrents: 
+  #           <<: *iptorrents_credentials
+  #           category: [22, 5, 99]
+  #       - rarbg:
+  #           category: [18, 41, 49]
+  #     interval: 3 hours
+  #   cfscraper: yes
+  #   include: alternates.yml
       
   search-movies:
     priority: 3
@@ -268,6 +269,8 @@ tasks:
     if:
       - transmission_progress == 100: accept
       - "transmission_ratio < 1.0 and transmission_date_done > now - timedelta(days=15)": reject
+      # - "transmission_progress == 100 and transmission_ratio > 2": accept
+      # - "transmission_date_done < now - timedelta(days=20)": accept
     transmission:
       <<: *transmission
       action: purge

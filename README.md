@@ -1,5 +1,7 @@
 ## frankyw/nc-flexget
 
+### ARCHIVED: This repository has been archived as I am no longer using Flexget, and instead have switched to the *arr stack. You can view the [home-server](https://github.com/frankyw/home-server) repo for more info.
+
 This is a repository to version control a FlexGet configuration. This configuration is used in conjunction with Transmission for downloading, Filebot for post-processing and emby for viewing.
 ## Notes
 Be aware of the following:
